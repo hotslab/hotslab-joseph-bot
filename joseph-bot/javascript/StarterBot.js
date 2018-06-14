@@ -1,6 +1,6 @@
 "use strict";
 
-let fs = require('fs');
+let fs = require("fs");
 
 let commandFileName = "command.txt";
 let stateFileName = "state.json";
@@ -25,19 +25,19 @@ function initBot(args) {
     workingDirectory = args[1];
 
     // Read the current state and choose an action
-    stateFile = require('./' + stateFileName);
+    stateFile = require("./" + stateFileName);
 
-    myself = stateFile.players.filter(p => p.playerType === 'A')[0];
-    opponent = stateFile.players.filter(p => p.playerType === 'B')[0];
+    myself = stateFile.players.filter(p => p.playerType === "A")[0];
+    opponent = stateFile.players.filter(p => p.playerType === "B")[0];
     mapSize = {
         x: stateFile.gameDetails.mapWidth,
         y: stateFile.gameDetails.mapHeight
     };
 
     let stats = stateFile.gameDetails.buildingsStats;
-	buildingStats[0]= stats.DEFENSE;
-	buildingStats[1]= stats.ATTACK;
-	buildingStats[2]= stats.ENERGY;
+    buildingStats[0] = stats.DEFENSE;
+    buildingStats[1] = stats.ATTACK;
+    buildingStats[2] = stats.ENERGY;
 
     gameMap = stateFile.gameMap;
     initEntities();
@@ -48,45 +48,56 @@ function initBot(args) {
 function initEntities() {
     cells = flatMap(gameMap); // all cells on the entire map
 
-    buildings = cells.filter(cell => cell.buildings.length > 0).map(cell => cell.buildings);
+    buildings = cells
+        .filter(cell => cell.buildings.length > 0)
+        .map(cell => cell.buildings);
     buildings = flatMap(buildings); // flat array of everyone's buildings
 
-    missiles = cells.filter(cell => cell.missiles.length > 0).map(cell => cell.missiles);
+    missiles = cells
+        .filter(cell => cell.missiles.length > 0)
+        .map(cell => cell.missiles);
     missiles = flatMap(missiles); // flat array of everyone's missiles
+    // console.log(myself.energy);
+    // console.log(buildings);
 }
 
 function runStrategy() {
-    if (isUnderAttack()) {
-        defendRow();
-    } else if (hasEnoughEnergyForMostExpensiveBuilding()) {
-        buildAttack();
-    } else {
-        buildEnergy();
-    }
+    buildAttack();
+    // if (hasEnoughEnergyForMostExpensiveBuilding()) {
+    //     buildAttack();
+    //     // } else if (isUnderAttack()) {
+    //     //     defendRow();
+    // } else {
+    //     buildEnergy();
+    // }
 }
-
-function isUnderAttack() {
-    // is there a row under attack? and have enough energy to build defence?
-	let myDefenders = buildings.filter(b => b.playerType == 'A' && b.buildingType == 'DEFENSE');
-    let opponentAttackers = buildings.filter(b => b.playerType == 'B' && b.buildingType == 'ATTACK')
-									 .filter(b => !myDefenders.some(d => d.y == b.y));
-
-    return (opponentAttackers.length > 0) && (myself.energy >= buildingStats[0].price);
-}
-
 
 function buildEnergy() {
     if (myself.energy >= 20) {
         // cells without buildings on them, and on my half of the map
-        let emptyCells = cells.filter(c => c.x === 0 && c.buildings.length === 0);
-        let yCoords = emptyCells.map(c => {return c.y});
-        let command = {x: '', y: '', bt: ''};
-        command.x = 0;
-        command.y = yCoords[Math.floor(Math.random() * yCoords.length)];
-        command.bt = 2;
-        buildCommand(command.x, command.y, command.bt);
+        let emptyCells = cells.filter(
+            c =>
+                c.x >= 0 &&
+                c.x < 4 &&
+                c.y < 3 &&
+                c.buildings.length === 0 &&
+                c.cellOwner == "A"
+        );
+        let yCoords = emptyCells.map(c => {
+            return c.y;
+        });
+        let random = [0, 1, 2, 3];
+        if (yCoords.length > 0) {
+            let command = { x: "", y: "", bt: "" };
+            command.x = random[Math.floor(Math.random() * random.length)];
+            command.y = yCoords[Math.floor(Math.random() * yCoords.length)];
+            command.bt = 2;
+            buildCommand(command.x, command.y, command.bt);
+        } else {
+            doNothingCommand();
+        }
     } else {
-        defendRow();
+        doNothingCommand();
     }
 }
 
@@ -94,62 +105,105 @@ function buildAttack() {
     if (myself.energy >= 30) {
         // cells without buildings on them, and on my half of the map
         // cells without buildings on them, and on my half of the map
-        let emptyCells = cells.filter(c => c.x === 2 && c.buildings.length === 0);
-        let yCoords = emptyCells.map(c => {return c.y});
-        let command = {x: '', y: '', bt: ''};
-        command.x = 2;
-        command.y = yCoords[Math.floor(Math.random() * yCoords.length)];
-        command.bt = 1;
-        buildCommand(command.x, command.y, command.bt);
+        let emptyCells = cells.filter(
+            c =>
+                c.x > 3 &&
+                c.x < 5 &&
+                c.buildings.length === 0 &&
+                c.cellOwner == "A"
+        );
+        let yCoords = emptyCells.map(c => {
+            return c.y;
+        });
+        let random = [4, 5, 6, 7];
+        if (yCoords.length > 0) {
+            let command = { x: "", y: "", bt: "" };
+            command.x = random[Math.floor(Math.random() * random.length)];
+            command.y = yCoords[Math.floor(Math.random() * yCoords.length)];
+            command.bt = 1;
+            buildCommand(command.x, command.y, command.bt);
+        } else {
+            buildEnergy();
+        }
     } else {
         buildEnergy();
     }
 }
 
-function defendRow() {
-    // is there a row under attack? and have enough energy to build defence?
-	let myDefenders = buildings.filter(b => b.playerType == 'A' && b.buildingType == 'DEFENSE');
-    let opponentAttackers = buildings.filter(b => b.playerType == 'B' && b.buildingType == 'ATTACK')
-									 .filter(b => !myDefenders.some(d => d.y == b.y));
-	if (opponentAttackers.length == 0) {
-		buildRandom();
-        return
-	}
-    // choose the first row with an opponent attacker
-    let rowNumber = opponentAttackers[0].y;
-    // get all the x-coordinates for this row, that are empty
-    let emptyCells = cells.filter(c => c.buildings.length == 0 && c.x <= (mapSize.x / 2) - 1 && c.y == rowNumber);
-    if (emptyCells.length == 0) {
-        // cannot build there, try to build somewhere else
-        buildRandom();
-        return
-    }
+// function isUnderAttack() {
+//     // is there a row under attack? and have enough energy to build defence?
+//     let myDefenders = buildings.filter(
+//         b => b.playerType == "A" && b.buildingType == "DEFENSE"
+//     );
+//     let opponentAttackers = buildings
+//         .filter(b => b.playerType == "B" && b.buildingType == "ATTACK")
+//         .filter(b => !myDefenders.some(d => d.y == b.y));
 
-    let command = {x: '', y: '', bt: ''};
-    command.x = getRandomFromArray(emptyCells).x;
-    command.y = rowNumber;
-    command.bt = 0; // defence building
-    buildCommand(command.x, command.y, command.bt);
-}
+//     return (
+//         opponentAttackers.length > 0 && myself.energy >= buildingStats[0].price
+//     );
+// }
+
+// function defendRow() {
+//     // is there a row under attack? and have enough energy to build defence?
+//     let myDefenders = buildings.filter(
+//         b => b.playerType == "A" && b.buildingType == "DEFENSE"
+//     );
+//     let opponentAttackers = buildings
+//         .filter(b => b.playerType == "B" && b.buildingType == "ATTACK")
+//         .filter(b => !myDefenders.some(d => d.y == b.y));
+//     if (opponentAttackers.length == 0) {
+//         buildRandom();
+//         return;
+//     }
+//     // choose the first row with an opponent attacker
+//     let rowNumber = opponentAttackers[0].y;
+//     // get all the x-coordinates for this row, that are empty
+//     let emptyCells = cells.filter(
+//         c =>
+//             c.buildings.length == 0 &&
+//             c.x <= mapSize.x / 2 - 1 &&
+//             c.y == rowNumber
+//     );
+//     if (emptyCells.length == 0) {
+//         // cannot build there, try to build somewhere else
+//         buildRandom();
+//         return;
+//     }
+
+//     let command = { x: "", y: "", bt: "" };
+//     command.x = getRandomFromArray(emptyCells).x;
+//     command.y = rowNumber;
+//     command.bt = 0; // defence building
+//     buildCommand(command.x, command.y, command.bt);
+// }
+
+// function buildRandom() {
+//     // cells without buildings on them, and on my half of the map
+//     let emptyCells = cells.filter(
+//         c => c.buildings.length == 0 && c.x <= mapSize.x / 2 - 1
+//     );
+//     if (emptyCells.length == 0) {
+//         doNothingCommand();
+//         return;
+//     }
+
+//     let randomCell = getRandomFromArray(emptyCells);
+//     let command = { x: "", y: "", bt: "" };
+//     command.x = randomCell.x;
+//     command.y = randomCell.y;
+//     // command.bt = getRandomInteger(2);
+//     if (myself.energy >= 30) {
+//         buildCommand(command.x, command.y, 0);
+//     } else if (myself.energy >= 20) {
+//         buildCommand(command.x, command.y, 2);
+//     } else {
+//         doNothingCommand();
+//     }
+// }
 
 function hasEnoughEnergyForMostExpensiveBuilding() {
-    return (myself.energy >= Math.max(...(buildingStats.map(stat => stat.price))));
-}
-
-function buildRandom() {
-    // cells without buildings on them, and on my half of the map
-    let emptyCells = cells.filter(c => c.buildings.length == 0 && c.x <= (mapSize.x / 2) - 1);
-	if (emptyCells.length == 0) {
-		doNothingCommand();
-        return;
-	}
-    let randomCell = getRandomFromArray(emptyCells);
-
-    let command = {x: '', y: '', bt: ''};
-    command.x = randomCell.x;
-    command.y = randomCell.y;
-    command.bt = getRandomInteger(2);
-    buildCommand(command.x, command.y, command.bt);
+    return myself.energy >= Math.max(...buildingStats.map(stat => stat.price));
 }
 
 function buildCommand(x, y, bt) {
@@ -157,11 +211,11 @@ function buildCommand(x, y, bt) {
 }
 
 function doNothingCommand() {
-    writeToFile(commandFileName, ``);
+    writeToFile(commandFileName, "");
 }
 
 function writeToFile(fileName, payload) {
-    fs.writeFile('./' + fileName, payload, function (err) {
+    fs.writeFile("./" + fileName, payload, function(err) {
         if (err) {
             return console.log(err);
         }
@@ -193,7 +247,7 @@ function getRandomInteger(max) {
  * @returns {number[]}
  */
 function getArrayRange(count) {
-    return Array.from({length: count}, (v, i) => i);
+    return Array.from({ length: count }, (v, i) => i);
 }
 
 /**
@@ -202,5 +256,5 @@ function getArrayRange(count) {
  * @returns {*}
  */
 function getRandomFromArray(array) {
-    return array[Math.floor((Math.random() * array.length))];
+    return array[Math.floor(Math.random() * array.length)];
 }

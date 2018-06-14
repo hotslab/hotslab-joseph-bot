@@ -1,8 +1,9 @@
 {
-  "round-state-output-location": "./tower-defence-matches",
-  "game-config-file-location": "./game-config.properties",
-  "verbose-mode": true,
-  "max-runtime-ms": 2000,
-  "player-a": "./joseph-bot/javascript",
-  "player-b": "./reference-bot/java"
+    "round-state-output-location": "./tower-defence-matches",
+    "game-config-file-location": "./game-config.properties",
+    "verbose-mode": true,
+    "max-runtime-ms": 2000,
+    "player-a": "./joseph-bot/javascript",
+    "player-b": "./PieterBot",
+    "player-c": "./reference-bot/java"
 }
